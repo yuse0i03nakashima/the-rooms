@@ -2,6 +2,8 @@
 // シートは 1 コマ 320×400、横 6 コマ。コマ数はシートごとに違うので、読み込んだときに
 // 透明でないコマを数える(desktop-mate の h384_*.png をそのまま使う)。
 const FRAME_W = 320, FRAME_H = 400, COLS = 6;
+// 画面には上半身だけを大きく出す(コマの中で絵があるのは横 100〜220 あたり、頭は上端近く)
+const CROP = { x: 60, y: 0, w: 200, h: 236 };
 
 const SHEETS = {
   idle: 'h384_idle_blink.png',
@@ -32,7 +34,7 @@ export class Portrait {
     this.queue = [];
     this.bubbleTimer = null;
     this.lastSaid = 0;
-    canvas.width = FRAME_W; canvas.height = FRAME_H;
+    canvas.width = CROP.w; canvas.height = CROP.h;
     this.load('idle').then(() => this.draw());
     requestAnimationFrame((t) => this.loop(t));
   }
@@ -89,8 +91,8 @@ export class Portrait {
     if (!sheet || !sheet.ok) return;
     const f = Math.min(this.frame, sheet.frames - 1);
     const sx = (f % COLS) * FRAME_W, sy = Math.floor(f / COLS) * FRAME_H;
-    this.ctx.clearRect(0, 0, FRAME_W, FRAME_H);
-    this.ctx.drawImage(sheet.img, sx, sy, FRAME_W, FRAME_H, 0, 0, FRAME_W, FRAME_H);
+    this.ctx.clearRect(0, 0, CROP.w, CROP.h);
+    this.ctx.drawImage(sheet.img, sx + CROP.x, sy + CROP.y, CROP.w, CROP.h, 0, 0, CROP.w, CROP.h);
   }
 }
 

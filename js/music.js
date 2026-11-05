@@ -1,19 +1,16 @@
-// 生成 BGM(音源ファイルを使わず、WebAudio で合成する電子音の曲)。
+// 生成 BGM(音源ファイルを使わず、WebAudio で合成する)。THE ROOMS 用の、少し切なく甘い曲。
 //
-// ねらい: Chain の熱に合わせて「層」を足し引きし、切り替えは必ず小節の頭で行う。
-//   こうすると熱が上がったときのつながりが音楽的になる(拍を外した瞬間の音色変化や、音程のゆらぎが無い)。
-//   調は C メジャー(A マイナー)。効果音(audio.js)の連鎖の音階と同じなので、消したときの音と調和する。
+// ねらい: 書斎で静かに考える時間に合う、ゆっくりした曲。Chain が続くと旋律が入る。
+//   調は D メジャー、BPM 84、8 小節の進行(いわゆる王道進行とその受け):
+//     IVmaj7 → V7 → iii7 → vi7 → ii7 → V7 → Imaj7 → I6
+//   7th と 9th を含む声部で「甘さ」を、iii7 → vi7 の下行で「切なさ」を出す。
 //
-// 構成(BPM 124、4 分の 4、4 小節のコード進行 Am → F → C → G を繰り返す):
-//   層 0(熱 0〜)       パッド(コードの持続音)+ まばらな撥弦
-//   層 1(熱 0.25〜)    キックとハイハット(8 分)
-//   層 2(熱 0.5〜)     ベース(8 分でルート音、オクターブ跳び)
-//   層 3(熱 0.75〜)    アルペジオのリード(16 分)+ エコー
-//   FEVER              全層 + ハイハット 16 分 + スネア + リードを 1 オクターブ上 + フィルタの開閉 + キックに合わせた音量のポンプ
+// 構成:
+//   層 1(熱 0〜)       エレピ風の分散和音(8 分)+ 薄いパッド
+//   層 2(熱 0.25〜)    旋律(8 小節のフレーズ)+ 柔らかいベース + 裏拍の小さなブラシ
 //
 // 時間の管理は「先読みスケジューラ」(Chris Wilson, A Tale of Two Clocks):
 //   setInterval で 50ms ごとに起き、AudioContext の時計で 0.2 秒先までの音を予約する。
-//   JavaScript のタイマーのゆれが音のタイミングに出ない。
 
 const STEPS_PER_BAR = 16;
 
@@ -21,28 +18,44 @@ const STEPS_PER_BAR = 16;
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
 
 // 調(長調の主音の midi 番号。C4 = 60)と BPM は設定で変えられる。
-// 既定の C メジャーは効果音の音階と同じ。参考曲の解析結果(docs/05)を入れると、その曲に寄せた響きになる。
-// コード進行は度数で持ち、主音から組み立てる: vi → IV → I → V(Am → F → C → G の形)
+// コード進行は度数で持ち、主音から組み立てる。7th を含む 4 声 + 9th
+const MAJOR = [0, 2, 4, 5, 7, 9, 11];
 const PROGRESSION = [
-  { degree: 9, minor: true },    // vi
-  { degree: 5, minor: false },   // IV
-  { degree: 0, minor: false },   // I
-  { degree: 7, minor: false },   // V
+  { degree: 5, kind: 'maj7' },   // IVmaj7
+  { degree: 7, kind: '7' },      // V7
+  { degree: 4, kind: 'm7' },     // iii7
+  { degree: 9, kind: 'm7' },     // vi7
+  { degree: 2, kind: 'm7' },     // ii7
+  { degree: 7, kind: '7' },      // V7
+  { degree: 0, kind: 'maj7' },   // Imaj7
+  { degree: 0, kind: '6' },      // I6
 ];
-const PENTA_DEGREES = [0, 2, 4, 7, 9];   // 長音階のペンタトニック
+const INTERVALS = { maj7: [0, 4, 7, 11, 14], '7': [0, 4, 7, 10, 14], m7: [0, 3, 7, 10, 14], '6': [0, 4, 7, 9, 14] };
 
 function buildChords(tonic) {
-  return PROGRESSION.map(({ degree, minor }) => {
+  return PROGRESSION.map(({ degree, kind }) => {
     const root = tonic - 12 + degree;                  // 主音の 1 オクターブ下から
-    const third = root + (minor ? 3 : 4);
-    return { root, notes: [root, third, root + 7] };
+    return { root, notes: INTERVALS[kind].map((i) => root + i) };
   });
 }
+// 旋律の音階(長音階 2 オクターブ)。添字 0 が主音
 function buildPenta(tonic) {
   const out = [];
-  for (let oct = 0; oct < 2; oct++) for (const d of PENTA_DEGREES) out.push(tonic + 12 * oct + d);
+  for (let oct = 0; oct < 2; oct++) for (const d of MAJOR) out.push(tonic + 12 * oct + d);
   return out;
 }
+// 旋律: [小節内の 16 分の位置(8 小節通し), 音階の添字, 長さ(16 分の数)]
+const MELODY = [
+  [0, 9, 3], [4, 10, 2], [6, 11, 2], [8, 12, 6],
+  [16, 11, 4], [20, 9, 2], [22, 8, 2], [24, 9, 6],
+  [32, 6, 4], [36, 8, 2], [38, 9, 2], [40, 11, 6],
+  [48, 9, 2], [50, 8, 2], [52, 7, 4], [56, 5, 6],
+  [64, 9, 3], [68, 10, 2], [70, 11, 2], [72, 12, 4], [76, 13, 2],
+  [80, 11, 6], [88, 9, 2], [90, 8, 2], [92, 7, 4],
+  [96, 8, 4], [100, 7, 2], [102, 6, 2], [104, 7, 8],
+  [112, 11, 3], [116, 9, 2], [118, 8, 2], [120, 9, 5],
+];
+const MELODY_LEN = 8 * 16;
 
 export class Music {
   constructor(cfg) {
@@ -185,23 +198,15 @@ export class Music {
 
   chordAt(bar) { return this.chords[bar % this.chords.length]; }
 
-  // 小節単位の音: パッド
+  // 小節単位の音: 薄いパッド(コードの持続音)
   playBar(t, bar) {
     const chord = this.chordAt(bar);
     const barLen = this.stepSec * STEPS_PER_BAR;
-    for (const m of chord.notes) {
-      // 2 本を少しずらしてコーラス感。1 オクターブ上も重ねて、スマホのスピーカーでも聞こえる帯域にする
-      for (const det of [-6, 6]) {
-        this.tone({ t, freq: mtof(m), type: 'sawtooth', detune: det, dur: barLen, gain: 0.07, attack: 0.5, release: 0.8, cutoff: 2200 });
-        this.tone({ t, freq: mtof(m + 12), type: 'triangle', detune: det * 0.5, dur: barLen, gain: 0.05, attack: 0.7, release: 0.8, cutoff: 4000 });
+    for (const m of chord.notes.slice(0, 4)) {
+      for (const det of [-5, 5]) {
+        this.tone({ t, freq: mtof(m), type: 'sine', detune: det, dur: barLen * 1.05, gain: 0.045, attack: 0.9, release: 0.9, cutoff: 1800 });
+        this.tone({ t, freq: mtof(m + 12), type: 'triangle', detune: det * 0.6, dur: barLen * 1.05, gain: 0.022, attack: 1.1, release: 0.9, cutoff: 3200 });
       }
-    }
-    // FEVER: 小節ごとにフィルタが開いて閉じる(CLASSIC では開閉しない)
-    if (this.fever && !(this.calm && this.calm.feverCalm)) {
-      this.lowpass.frequency.cancelScheduledValues(t);
-      this.lowpass.frequency.setValueAtTime(3000, t);
-      this.lowpass.frequency.exponentialRampToValueAtTime(14000, t + barLen * 0.5);
-      this.lowpass.frequency.exponentialRampToValueAtTime(4000, t + barLen);
     }
   }
 
@@ -209,39 +214,44 @@ export class Music {
   playStep(t, bar, s) {
     const chord = this.chordAt(bar);
     const L = this.layers;
-    const onBeat = s % 4 === 0, offBeat = s % 4 === 2;
+    const offBeat = s % 4 === 2;
 
-    // 撥弦(層 0〜): 拍ごとに、コード構成音のペンタトニックから
-    if (s % 4 === 1 || (s % 8 === 6 && L >= 2) || (s % 8 === 3 && L === 1)) {
-      const pool = this.penta.filter((m) => chord.notes.some((c) => (m - c) % 12 === 0)).concat(chord.notes.map((c) => c + 12));
-      const m = pool[(bar * 7 + s * 3) % pool.length];
-      this.tone({ t, freq: mtof(m), type: 'triangle', dur: 0.35, gain: 0.2, attack: 0.004, release: 0.3, cutoff: 6000 });
+    // エレピ風の分散和音(層 1〜): 8 分で上って下りる。小節ごとに形を少し変える
+    if (s % 2 === 0) {
+      const v = chord.notes;                                   // [root, 3rd, 5th, 7th, 9th]
+      const shapes = [[0, 2, 3, 4, 3, 2, 1, 2], [0, 1, 2, 4, 3, 4, 2, 1], [0, 2, 4, 3, 2, 3, 1, 2]];
+      const shape = shapes[bar % shapes.length];
+      const i = shape[(s / 2) % 8];
+      const m = v[i] + (i === 0 ? 0 : 12);
+      const g = s % 8 === 0 ? 0.16 : 0.11;
+      this.ep(t, mtof(m), g);
     }
-    // 層 0 でも裏拍に小さなハイハット(拍の手がかり)
-    if (L === 1 && offBeat) this.hat(t, 0.035);
 
-    // ドラム(層 1〜)
+    // 旋律(層 2〜): 8 小節のフレーズ。エコーに送る
     if (L >= 2) {
-      if (onBeat) this.kick(t);
-      const wild = this.fever && !(this.calm && this.calm.feverCalm);
-      if (wild || L >= 4 ? true : offBeat) this.hat(t, s % 4 === 2 ? 0.14 : 0.08, wild && s % 8 === 6);
-      if (wild && (s === 4 || s === 12)) this.snare(t);
+      const pos = (bar * STEPS_PER_BAR + s) % MELODY_LEN;
+      const note = MELODY.find((n) => n[0] === pos);
+      if (note) {
+        const m = this.penta[note[1]] + 12;
+        const dur = this.stepSec * note[2] * 0.95;
+        this.tone({ t, freq: mtof(m), type: 'triangle', dur, gain: 0.15, attack: 0.02, release: Math.min(0.35, dur * 0.5), cutoff: 2600, toDelay: true });
+        this.tone({ t, freq: mtof(m), type: 'sine', detune: 4, dur, gain: 0.07, attack: 0.03, release: Math.min(0.35, dur * 0.5), cutoff: 2600 });
+      }
+      // ベース: 1 拍目と 3 拍目にルート、4 拍目の裏に 5 度
+      if (s === 0 || s === 8) {
+        this.tone({ t, freq: mtof(chord.root - 12), type: 'sine', dur: this.stepSec * 7, gain: 0.2, attack: 0.01, release: 0.3, cutoff: 420 });
+      } else if (s === 14) {
+        this.tone({ t, freq: mtof(chord.root - 12 + 7), type: 'sine', dur: this.stepSec * 2, gain: 0.14, attack: 0.01, release: 0.15, cutoff: 420 });
+      }
+      // 裏拍の小さなブラシ
+      if (offBeat) this.hat(t, 0.028);
     }
+  }
 
-    // ベース(層 2〜): 8 分。3 拍目の裏でオクターブ上
-    if (L >= 3 && s % 2 === 0) {
-      const m = chord.root - 12 + (s === 10 || s === 14 ? 12 : 0);
-      this.tone({ t, freq: mtof(m), type: 'sawtooth', dur: this.stepSec * 1.8, gain: 0.22, attack: 0.005, release: 0.08, cutoff: 500 + this.heat * 900 });
-    }
-
-    // リードのアルペジオ(層 3〜): 16 分。FEVER では 1 オクターブ上
-    if (L >= 4) {
-      const pattern = [0, 1, 2, 1, 0, 2, 1, 2];
-      const notes = chord.notes.map((c) => c + 12 + (this.fever ? 12 : 0));
-      const m = notes[pattern[s % 8]] + (s >= 8 && bar % 2 === 1 ? 2 : 0) * 0;
-      const g = (s % 4 === 0 ? 0.13 : 0.09) * (this.fever ? 1.15 : 1);
-      this.tone({ t, freq: mtof(m), type: 'square', dur: this.stepSec * 0.9, gain: g, attack: 0.003, release: 0.08, cutoff: 3500, toDelay: true });
-    }
+  // エレピ風の 1 音: 正弦波に三角波の倍音を少し重ねる。立ち上がりは速く、減衰はゆっくり
+  ep(t, freq, gain) {
+    this.tone({ t, freq, type: 'sine', dur: this.stepSec * 2.4, gain, attack: 0.004, release: 0.45, cutoff: 3000 });
+    this.tone({ t, freq: freq * 2, type: 'triangle', dur: this.stepSec * 1.2, gain: gain * 0.22, attack: 0.004, release: 0.2, cutoff: 5000 });
   }
 
   // ---------- 楽器 ----------

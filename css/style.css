@@ -68,7 +68,7 @@ body::before {
 .board-wrap { flex:1; display:flex; align-items:center; justify-content:center; min-height:0; padding:10px 0; }
 .board {
   display:grid; grid-template-columns:repeat(var(--n), 1fr);
-  width:min(100%, 62vh, 520px); aspect-ratio:1;
+  width:min(100%, 50vh, 520px); aspect-ratio:1;
   background:#0d0a07; padding:4px; border:1px solid var(--border-light);
   box-shadow:0 0 0 4px rgba(13,10,7,0.8), 0 0 0 5px var(--border), 0 18px 40px rgba(0,0,0,0.6), inset 0 0 30px rgba(0,0,0,0.6);
 }
@@ -84,7 +84,7 @@ body::before {
 /* 部屋の境界 */
 .cell.bt { border-top:3px solid var(--gold); } .cell.bb { border-bottom:3px solid var(--gold); }
 .cell.bl { border-left:3px solid var(--gold); } .cell.br { border-right:3px solid var(--gold); }
-.cell .x { font-family:var(--font-mono); font-size:calc(min(100vw, 62vh, 520px) / var(--n) * 0.42); color:rgba(239,227,200,0.0); line-height:1; transition:color 0.12s; }
+.cell .x { font-family:var(--font-mono); font-size:calc(min(100vw, 50vh, 520px) / var(--n) * 0.42); color:rgba(239,227,200,0.0); line-height:1; transition:color 0.12s; }
 .cell.mark .x { color:rgba(239,227,200,0.75); }
 .cell .piece {
   position:absolute; inset:7%; display:none;
@@ -105,16 +105,16 @@ body.clear .cell.piece { animation:glow 0.8s ease-in-out infinite alternate; }
 @keyframes glow { to { box-shadow:inset 0 0 0 3px var(--gold2), 0 0 18px var(--gold2); } }
 
 /* ---------- ステロペ ---------- */
-.companion { display:flex; align-items:flex-end; gap:8px; height:124px; margin-top:4px; }
-.portrait-wrap { flex:none; width:96px; height:120px; overflow:hidden; }
-#portrait { width:96px; height:120px; display:block; }
+.companion { display:flex; align-items:flex-end; gap:10px; height:200px; margin-top:2px; }
+.portrait-wrap { flex:none; width:166px; height:196px; overflow:hidden; }
+#portrait { width:166px; height:196px; display:block; filter:drop-shadow(0 6px 10px rgba(0,0,0,0.6)); }
 .bubble {
-  position:relative; flex:1; margin-bottom:28px; padding:8px 12px; font-size:13px; line-height:1.5;
+  position:relative; flex:1; margin-bottom:60px; padding:8px 12px; font-size:13px; line-height:1.5;
   color:var(--text); background:rgba(34,25,18,0.92); border:1px solid var(--gold); border-radius:4px;
   opacity:0; transform:translateY(4px); transition:opacity 0.25s, transform 0.25s;
 }
 .bubble.show { opacity:1; transform:translateY(0); }
-.bubble::before { content:''; position:absolute; left:-7px; bottom:12px; border:6px solid transparent; border-right-color:var(--gold); border-left:0; }
+.bubble::before { content:''; position:absolute; left:-7px; bottom:16px; border:6px solid transparent; border-right-color:var(--gold); border-left:0; }
 .bubble[hidden] { display:block; }
 
 /* ---------- ボタン ---------- */
@@ -182,4 +182,4 @@ body.clear .cell.piece { animation:glow 0.8s ease-in-out infinite alternate; }
 .toast.show { opacity:1; }
 .toast[hidden] { display:none; }
 
-@media (max-height:640px) { .companion { height:96px; } .portrait-wrap, #portrait { width:76px; height:95px; } .score { font-size:22px; } }
+@media (max-height:700px) { .companion { height:150px; } .portrait-wrap, #portrait { width:127px; height:150px; } .bubble { margin-bottom:40px; } .score { font-size:22px; } }
