@@ -56,7 +56,7 @@ body::before {
 .hud .sub { font-family:var(--font-mono); font-size:10px; letter-spacing:1px; color:var(--text-dim); }
 .hud-center { text-align:center; }
 .hud-right { text-align:right; }
-.score { font-family:var(--font-en); font-size:28px; font-weight:600; letter-spacing:1px; color:var(--text); line-height:1.1; }
+.score { font-family:var(--font-en); font-variant-numeric:lining-nums; font-size:28px; font-weight:600; letter-spacing:1px; color:var(--text); line-height:1.1; }
 .lives { font-size:14px; letter-spacing:2px; }
 .heart { color:var(--rose); text-shadow:0 0 6px rgba(201,86,110,0.5); }
 .heart.off { color:var(--border); text-shadow:none; }
@@ -137,7 +137,7 @@ body.clear .cell.piece { animation:glow 0.8s ease-in-out infinite alternate; }
   background:linear-gradient(180deg, #2a1f16, #1c1510); border:1px solid var(--gold);
   box-shadow:0 0 0 4px rgba(13,10,7,0.9), 0 0 0 5px var(--border), 0 24px 60px rgba(0,0,0,0.7);
 }
-.card-title { font-family:var(--font-en); font-size:26px; font-weight:600; letter-spacing:4px; color:var(--gold2); text-align:center; margin-bottom:10px; }
+.card-title { font-family:var(--font-en); font-variant-numeric:lining-nums; font-size:26px; font-weight:600; letter-spacing:4px; color:var(--gold2); text-align:center; margin-bottom:10px; }
 .card-sub { font-size:12px; color:var(--text-muted); text-align:center; margin-bottom:12px; }
 .logo { text-align:center; margin:6px 0 14px; }
 .logo-main { display:block; font-family:var(--font-en); font-size:44px; font-weight:600; letter-spacing:8px; color:var(--gold2); text-shadow:0 0 18px rgba(240,215,138,0.35); line-height:1.1; }
@@ -165,7 +165,7 @@ body.clear .cell.piece { animation:glow 0.8s ease-in-out infinite alternate; }
 .btn:active { transform:translateY(1px); }
 .sel-grid { display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; margin:10px 0 14px; max-height:46vh; overflow:auto; }
 .sel { appearance:none; background:rgba(34,25,18,0.9); border:1px solid var(--border-light); color:var(--text); padding:6px 2px; cursor:pointer; display:flex; flex-direction:column; align-items:center; }
-.sel b { font-family:var(--font-en); font-size:18px; font-weight:600; color:var(--gold2); }
+.sel b { font-family:var(--font-en); font-variant-numeric:lining-nums; font-size:18px; font-weight:600; color:var(--gold2); }
 .sel small { font-family:var(--font-mono); font-size:9px; color:var(--text-dim); }
 .sel i { font-style:normal; font-size:9px; color:var(--gold); min-height:12px; }
 .sel.cur { border-color:var(--gold); }
