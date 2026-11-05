@@ -1,18 +1,20 @@
 // 生成 BGM(音源ファイルを使わず、WebAudio で合成する)。THE ROOMS 用。
 //
-// ねらい: 「アップテンポで甘いのに、どこかに切なさがある」。
-//   参考にした曲(案山子「真生活」)をコード譜と楽曲分析サイトで調べた結果:
-//     調 D♭ メジャー(相対調 B♭ マイナー)、BPM 128、ほぼ全編が 4 小節の繰り返し
-//       IVmaj7 → III → vi7 → I7   (G♭maj7 → F → B♭m7 → D♭7)
-//     途中で IV → V → vi7 に変わる所がある。
-//   「切なさ」は III(長三和音のドミナント)から vi7 へ落ちる所、
-//   「甘さ」は IVmaj7 の長 7 度と、I7(属七)が IV へ戻る所から来る。
-//   音そのものは写さず、この進行・テンポ・リズムの性格だけを借りて、自分の旋律と音色で作る。
+// ねらい: 「アップテンポで甘いのに、どこかに切なさがある」。参考音源 2 曲を調べた:
+//   1. 案山子「真生活」(コード譜と楽曲分析サイト):
+//        D♭ メジャー、BPM 128。ほぼ全編 IVmaj7 → III → vi7 → I7 の 4 小節。
+//   2. Dyolow「ROCK PAPER SCISSORS!」(NCS。音声を解析 + Hooktheory):
+//        C メジャー、BPM 145、四つ打ち、明るい音色(スペクトル重心 2.5 kHz)。
+//        サビは IVmaj7 → V → iii7 → II7(V7/ii)。
+//   共通点: 先頭が IVmaj7(長 7 度の甘さ)、途中に音階の外の長三和音(III や II7 = 副属和音)が
+//   入ってそこが切ない、最後は短 7 の和音か属和音で IV へ戻る、四つ打ちのダンスビート。
+//   音そのものは写さず、進行・テンポ・リズムの性格だけを借りて、自分の旋律と音色で作る。
 //
-// 構成(BPM 128、4 分の 4、8 小節 = 上の 4 小節 ×2。後半は III の代わりに V):
-//   層 1(熱 0〜)       四つ打ちのキックと 8 分のハイハット、2・4 拍のスネア、8 分のベース、
-//                      裏で刻むエレピの和音(16 分のシンコペーション)、薄いパッド
-//   層 2(熱 0.25〜)    8 小節の旋律 + 高い所のきらきらした分散和音
+// 構成(BPM 140、4 分の 4、8 小節 = 前半が 1. の型、後半が 2. の型):
+//   IVmaj7 → III7 → vi7 → I7 → IVmaj7 → V → iii7 → II7
+//   層 1(熱 0〜)       四つ打ちのキック、2・4 拍のスネア、8 分のハイハット(時々 16 分の連打)、
+//                      滑る 808 風ベース、裏で刻むプラック(フィルタが閉じる音)の和音、薄いパッド
+//   層 2(熱 0.25〜)    8 小節の旋律(1 オクターブの中で順次進行が多い)+ 高いベルの分散和音
 //
 // 時間の管理は「先読みスケジューラ」(Chris Wilson, A Tale of Two Clocks):
 //   setInterval で 50ms ごとに起き、AudioContext の時計で 0.2 秒先までの音を予約する。
@@ -23,16 +25,16 @@ const STEPS_PER_BAR = 16;
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
 
 // 調(長調の主音の midi 番号。C4 = 60)と BPM は設定で変えられる。
-// コード進行は主音からの半音で持つ(III の長三和音のように、音階に無い音も使うため)
+// コード進行は主音からの半音で持つ(III7 や II7 のように、音階に無い音を含むため)
 const PROGRESSION = [
   { degree: 5, kind: 'maj7' },   // IVmaj7
-  { degree: 4, kind: 'maj' },    // III   (長三和音。ここが切ない)
+  { degree: 4, kind: '7' },      // III7   (切ない: 音階の外の長 3 度)
   { degree: 9, kind: 'm7' },     // vi7
-  { degree: 0, kind: '7' },      // I7    (属七。IV へ戻る甘さ)
+  { degree: 0, kind: '7' },      // I7     (属七。IV へ戻る甘さ)
   { degree: 5, kind: 'maj7' },   // IVmaj7
   { degree: 7, kind: 'maj' },    // V
-  { degree: 9, kind: 'm7' },     // vi7
-  { degree: 0, kind: '7' },      // I7
+  { degree: 4, kind: 'm7' },     // iii7
+  { degree: 2, kind: '7' },      // II7    (V7/ii。ここも切ない)
 ];
 const INTERVALS = { maj7: [0, 4, 7, 11], maj: [0, 4, 7, 12], m7: [0, 3, 7, 10], '7': [0, 4, 7, 10] };
 
@@ -45,16 +47,16 @@ function buildChords(tonic) {
 // 旋律の基準音(主音の 1 オクターブ上)。旋律は主音からの半音で書く
 function buildPenta(tonic) { return [tonic + 12]; }
 // 旋律: [8 小節通しの 16 分の位置, 主音からの半音, 長さ(16 分の数)]
-//   III の小節で 8(長 3 度 = 音階に無い音)を長く置いて切なさを出す。I7 では 10(短 7 度)
+//   III7 の小節で 8(音階に無い長 3 度)、II7 の小節で 6(同じく)を長く置いて切なさを出す
 const MELODY = [
-  [0, 9, 2], [2, 11, 2], [4, 12, 2], [8, 16, 4], [12, 14, 2],
-  [16, 8, 4], [20, 11, 2], [22, 12, 2], [24, 9, 6],
+  [0, 12, 2], [2, 16, 2], [4, 17, 2], [6, 16, 2], [8, 14, 4], [12, 12, 2], [14, 11, 2],
+  [16, 8, 6], [22, 11, 2], [24, 12, 4], [28, 9, 2], [30, 8, 2],
   [32, 9, 2], [34, 12, 2], [36, 16, 4], [40, 14, 2], [42, 12, 2], [44, 9, 4],
-  [48, 7, 4], [52, 10, 2], [54, 9, 2], [56, 7, 6],
-  [64, 9, 2], [66, 11, 2], [68, 12, 2], [70, 14, 2], [72, 16, 6],
-  [80, 19, 4], [84, 16, 2], [86, 14, 2], [88, 12, 6],
-  [96, 9, 2], [98, 12, 2], [100, 16, 4], [104, 17, 2], [106, 16, 2], [108, 14, 4],
-  [112, 12, 4], [116, 10, 2], [118, 9, 2], [120, 7, 6],
+  [48, 7, 2], [50, 10, 2], [52, 12, 4], [56, 10, 2], [58, 9, 2], [60, 7, 4],
+  [64, 12, 2], [66, 16, 2], [68, 17, 2], [70, 19, 2], [72, 16, 4], [76, 14, 2], [78, 12, 2],
+  [80, 11, 4], [84, 12, 2], [86, 14, 2], [88, 11, 6],
+  [96, 7, 2], [98, 11, 2], [100, 14, 4], [104, 11, 2], [106, 7, 2], [108, 4, 4],
+  [112, 6, 4], [116, 9, 2], [118, 12, 2], [120, 9, 6],
 ];
 const MELODY_LEN = 8 * 16;
 
@@ -85,7 +87,7 @@ export class Music {
     this.ctx = ctx;
     this.master = ctx.createGain(); this.master.gain.value = 0;
     this.pump = ctx.createGain(); this.pump.gain.value = 1;        // キックに合わせて凹ませる
-    this.lowpass = ctx.createBiquadFilter(); this.lowpass.type = 'lowpass'; this.lowpass.frequency.value = 3500; this.lowpass.Q.value = 0.8;
+    this.lowpass = ctx.createBiquadFilter(); this.lowpass.type = 'lowpass'; this.lowpass.frequency.value = 6500; this.lowpass.Q.value = 0.8;
     this.comp = ctx.createDynamicsCompressor();
     this.comp.threshold.value = -14; this.comp.knee.value = 8; this.comp.ratio.value = 6; this.comp.attack.value = 0.003; this.comp.release.value = 0.2;
     this.analyser = ctx.createAnalyser(); this.analyser.fftSize = 256; this.analyser.smoothingTimeConstant = 0.5;
@@ -164,7 +166,7 @@ export class Music {
     if (Math.abs(heat - this.heat) < 0.005 && this.ctx) return;
     this.heat = heat;
     if (!this.ctx) return;
-    const cutoff = 3500 * Math.pow(12000 / 3500, heat);
+    const cutoff = 6500 * Math.pow(14000 / 6500, heat);
     this.lowpass.frequency.setTargetAtTime(cutoff, this.ctx.currentTime, 0.8);
     this.updateMaster(0.8);
   }
@@ -205,7 +207,7 @@ export class Music {
     const barLen = this.stepSec * STEPS_PER_BAR;
     for (const m of chord.notes) {
       for (const det of [-6, 6]) {
-        this.tone({ t, freq: mtof(m + 12), type: 'triangle', detune: det, dur: barLen * 1.02, gain: 0.03, attack: 0.4, release: 0.5, cutoff: 2600 });
+        this.tone({ t, freq: mtof(m + 12), type: 'triangle', detune: det, dur: barLen * 1.02, gain: 0.028, attack: 0.3, release: 0.5, cutoff: 2800 });
       }
     }
   }
@@ -216,22 +218,23 @@ export class Music {
     const L = this.layers;
     const v = chord.notes;
 
-    // ドラム(層 1〜): 四つ打ち、2・4 拍にスネア、8 分のハイハット(4 拍目の裏は開く)
+    // ドラム(層 1〜): 四つ打ち、2・4 拍にスネア、8 分のハイハット。2 小節に 1 回、最後に 16 分の連打
     if (s % 4 === 0) this.kick(t);
     if (s === 4 || s === 12) this.snare(t);
-    if (s % 2 === 0) this.hat(t, s % 4 === 2 ? 0.11 : 0.06, s === 14);
-    if (s % 4 === 3 && bar % 2 === 1) this.hat(t, 0.035);
+    const roll = bar % 2 === 1 && s >= 13;
+    if (s % 2 === 0 || roll) this.hat(t, roll ? 0.07 : s % 4 === 2 ? 0.1 : 0.06, s === 14 && !roll);
 
-    // ベース(層 1〜): 8 分でルート。4 拍目の裏で 1 オクターブ上、小節の最後で次の和音へ動く
-    if (s % 2 === 0) {
-      const m = chord.root - 12 + (s === 14 ? 12 : s === 6 ? 7 : 0);
-      this.tone({ t, freq: mtof(m), type: 'sawtooth', dur: this.stepSec * 1.7, gain: 0.2, attack: 0.004, release: 0.06, cutoff: 650 + this.heat * 500 });
+    // 808 風のベース(層 1〜): 音の頭で上から滑り込む。1 拍目は長く、4 拍目の裏でオクターブ上
+    const bassAt = { 0: 6, 6: 2, 8: 4, 12: 2, 14: 2 };
+    if (bassAt[s]) {
+      const m = chord.root - 12 + (s === 14 ? 12 : s === 12 ? 7 : 0);
+      this.bass808(t, mtof(m), this.stepSec * bassAt[s], s === 0 ? 1.5 : 1.12);
     }
 
-    // エレピの和音(層 1〜): 裏で刻むシンコペーション(16 分の 0・3・6・10・12・14)
-    const stabs = { 0: 0.14, 3: 0.1, 6: 0.12, 10: 0.1, 12: 0.08, 14: 0.11 };
+    // プラックの和音(層 1〜): 裏で刻むシンコペーション(16 分の 0・3・6・10・12・14)
+    const stabs = { 0: 0.13, 3: 0.1, 6: 0.12, 10: 0.1, 12: 0.08, 14: 0.11 };
     if (stabs[s]) {
-      for (const [i, m] of v.entries()) this.ep(t + i * 0.006, mtof(m + 12), stabs[s] * (i === 0 ? 0.7 : 1));
+      for (const [i, m] of v.entries()) this.pluck(t + i * 0.005, mtof(m + 12), stabs[s] * (i === 0 ? 0.6 : 1));
     }
 
     if (L >= 2) {
@@ -240,22 +243,43 @@ export class Music {
       const note = MELODY.find((n) => n[0] === pos);
       if (note) {
         const m = this.penta[0] + note[1];
-        const dur = this.stepSec * note[2] * 0.92;
-        this.tone({ t, freq: mtof(m), type: 'square', dur, gain: 0.11, attack: 0.008, release: Math.min(0.2, dur * 0.4), cutoff: 2400, toDelay: true });
-        this.tone({ t, freq: mtof(m), type: 'triangle', detune: 5, dur, gain: 0.1, attack: 0.01, release: Math.min(0.2, dur * 0.4), cutoff: 3600 });
+        const dur = this.stepSec * note[2] * 0.9;
+        this.tone({ t, freq: mtof(m), type: 'square', dur, gain: 0.1, attack: 0.006, release: Math.min(0.18, dur * 0.4), cutoff: 2600, toDelay: true });
+        this.tone({ t, freq: mtof(m), type: 'triangle', detune: 6, dur, gain: 0.11, attack: 0.008, release: Math.min(0.18, dur * 0.4), cutoff: 4200 });
       }
-      // 高い所のきらきら(16 分の 1・5・9・13 に和音の音を上から)
+      // 高いベル(16 分の 1・5・9・13 に和音の音を上から順に)
       if (s % 4 === 1) {
         const m = v[(3 - Math.floor(s / 4)) % v.length] + 24;
-        this.tone({ t, freq: mtof(m), type: 'sine', dur: this.stepSec * 1.5, gain: 0.05, attack: 0.003, release: 0.12, cutoff: 8000, toDelay: true });
+        this.tone({ t, freq: mtof(m), type: 'sine', dur: this.stepSec * 1.6, gain: 0.055, attack: 0.002, release: 0.14, cutoff: 9000, toDelay: true });
       }
     }
   }
 
-  // エレピ風の 1 音: 正弦波に三角波の倍音を少し重ねる。立ち上がりは速く、短めに切る
-  ep(t, freq, gain) {
-    this.tone({ t, freq, type: 'sine', dur: this.stepSec * 1.6, gain, attack: 0.003, release: 0.18, cutoff: 3200 });
-    this.tone({ t, freq: freq * 2, type: 'triangle', dur: this.stepSec * 0.9, gain: gain * 0.25, attack: 0.003, release: 0.1, cutoff: 5200 });
+  // プラック: のこぎり波のフィルタを一気に閉じる(明るい立ち上がり、短い余韻)
+  pluck(t, freq, gain) {
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = freq;
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 1.2;
+    f.frequency.setValueAtTime(4200, t); f.frequency.exponentialRampToValueAtTime(600, t + 0.16);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + this.stepSec * 1.6);
+    osc.connect(f); f.connect(g); g.connect(this.lowpass);
+    osc.start(t); osc.stop(t + this.stepSec * 1.7);
+  }
+
+  // 808 風ベース: 正弦波を上から滑り込ませ、少し歪ませて倍音を足す
+  bass808(t, freq, dur, slide) {
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator(); osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq * slide, t); osc.frequency.exponentialRampToValueAtTime(freq, t + 0.07);
+    const shaper = ctx.createWaveShaper(); shaper.curve = this.softCurve ?? (this.softCurve = makeSoftCurve());
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5, t + 0.006);
+    g.gain.setValueAtTime(0.5, t + Math.max(0.01, dur - 0.08)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    const out = ctx.createGain(); out.gain.value = 0.42;
+    osc.connect(g); g.connect(shaper); shaper.connect(out); out.connect(this.drumBus);
+    osc.start(t); osc.stop(t + dur + 0.05);
   }
 
   // ---------- 楽器 ----------
@@ -313,4 +337,11 @@ export class Music {
     const g2 = ctx.createGain(); g2.gain.setValueAtTime(0.4, t); g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
     osc.connect(g2); g2.connect(this.drumBus); osc.start(t); osc.stop(t + 0.15);
   }
+}
+
+// やわらかい歪み(tanh)。808 風ベースの倍音用
+function makeSoftCurve() {
+  const n = 1024, curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; curve[i] = Math.tanh(x * 2.2); }
+  return curve;
 }

@@ -17,7 +17,7 @@ export const CONFIG = {
   autoMark: true,                    // 駒を置いたら、その駒とぶつかるマスに × を自動で付ける
   fx: { scale: 1.0 },
   audio: { masterVolume: 0.35 },
-  bgm: { mode: 'synth', synthVolume: 0.24, tonic: 61, bpm: 128, maxLayers: 2 },  // D♭ メジャー、BPM 128。IVmaj7→III→vi7→I7 の繰り返し(music.js の冒頭に根拠)
+  bgm: { mode: 'synth', synthVolume: 0.24, tonic: 61, bpm: 140, maxLayers: 2 },  // D♭ メジャー、BPM 140。参考 2 曲(128 と 145)の間。進行は music.js の冒頭に根拠
   chat: { minIntervalMs: 2500 },      // ステロペの一言の間隔
   save: { key: 'therooms.v1' },
 };
