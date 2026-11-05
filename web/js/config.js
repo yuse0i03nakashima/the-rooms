@@ -17,7 +17,7 @@ export const CONFIG = {
   autoMark: true,                    // 駒を置いたら、その駒とぶつかるマスに × を自動で付ける
   fx: { scale: 1.0 },
   audio: { masterVolume: 0.35 },
-  bgm: { mode: 'synth', synthVolume: 0.22, tonic: 62, bpm: 92, maxLayers: 2 },   // D メジャー、ゆっくり
+  bgm: { mode: 'synth', synthVolume: 0.26, tonic: 62, bpm: 84, maxLayers: 2 },   // D メジャー、BPM 84。王道進行の切なく甘い曲(music.js)
   chat: { minIntervalMs: 2500 },      // ステロペの一言の間隔
   save: { key: 'therooms.v1' },
 };
