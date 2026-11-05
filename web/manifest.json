@@ -1,0 +1,16 @@
+{
+  "name": "THE ROOMS",
+  "short_name": "ROOMS",
+  "description": "広告なしの配置パズル。各行・各列・各部屋にひとりずつ、隣り合わないように置く。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#15100c",
+  "theme_color": "#15100c",
+  "lang": "ja",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
